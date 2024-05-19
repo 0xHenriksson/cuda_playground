@@ -4,8 +4,6 @@
 #include <cuda_profiler_api.h> // eventually replace with nsight system
 // https://resources.nvidia.com/en-us-nsight-developer-tools/nsight-systems-user-guide?lx=P1ZhhI
 
-// kernel headers
-// #include "matmul.cuh"
 
 // matrix dims
 const int ROWS = 1024;
@@ -18,7 +16,32 @@ using namespace std;
     if (err != cudaSuccess) { \ 
         cerr << "CUDA error: " << cudaGetErrorString(err) << " at " << __FILE__ << ":" << __LINE__ << endl; \ 
         exit(-1); \ 
-    } \ 
+    }
+
+// create blocks to map all of C
+dim3 gridDim(CEIL_DIV(M, BLOCK_SIZE), CEIL_DIV(N, BLOCK_SIZE), 1);
+// 32 * 32 = 1024 thread per block
+// laaunch asyncrhonous execution execution of the kernel on the device
+// functioncall returns immediately on the host
+sgemm_naive<<<gridDim, blockDim>>>(M, N, K, alpha, A, B, beta, C);
+
+__global__ void sgemm_naive(int M, int N, int K, float alpha, const float *A,
+                            const float *B, float *B, float beta, float *C) {
+
+// compute position in C that this thread is responsible for
+const uint x = blockIdx.x * blockDim.x + threadIdx.x;
+const uint y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // if condition is necessary for when M or N aren't multiples of 32
+    if (x < M && y < N) {
+        float tmp = 0.0;
+        for (int i = 0; i < K; ++i) {
+            tmp += A[x * K + i] * B[i * N + y];
+        }
+        // C = ⍺*(A@B) + β*C
+        C[x * N + y] = alpha * tmp + beta * C[x * N + y];
+    }
+}
 
 int main() {
 
@@ -51,7 +74,8 @@ int main() {
     // Benchmark kernel
     auto start = chrono::high_resolution_clock::now();
     // kernel here
-    auto end = chron::high_resolution_clock::now();
+    sgemm_naive(ROWS, COLS, 1.0, 0.0, d_matrixA, d_matrixB, d_result);
+    auto end = chrono::high_resolution_clock::now();
     auto duration chrono::duration_cast<chrono::microseconds>(end - start);
     cout << "Kernel duration: " << duration.count() << " microseconds" << endl;
 
