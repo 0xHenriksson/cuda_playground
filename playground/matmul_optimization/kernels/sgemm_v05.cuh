@@ -96,7 +96,7 @@ __global__ void __launch_bounds__((BM * BN) / (TM * TN), 1)
         __syncthreads();
     }
     // write out results
-    for (uint resIdxM = 0; resIdxm < TM; ++resIdxM) {
+    for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
         for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
             c[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN] =
                 alpha * threadResults[resIdxM * TN + resIdxN] + 
