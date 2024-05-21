@@ -520,40 +520,52 @@ void run_kernel(int kernel_num, int M, int N, int K, float alpha, float *A,
     runCublasFP32(handle, M, N, K, alpha, A, B, beta, C);
     break;
   case 1:
+  // Naive SGEMM
     run_sgemm_v01(M, N, K, alpha, A, B, beta, C);
     break;
   case 2:
+  // Global memory Coalescing
     run_sgemm_v02(M, N, K, alpha, A, B, beta, C);
     break;
   case 3:
+  // Shared Memory (SMEM)
     run_sgemm_v03(M, N, K, alpha, A, B, beta, C);
     break;
   case 4:
+  // 1D Blockiling
     run_sgemm_v04(M, N, K, alpha, A, B, beta, C);
     break;
   case 5:
+  // 2D Blocktiling
     run_sgemm_v05(M, N, K, alpha, A, B, beta, C);
     break;
   case 6:
+  // GEMM Vectorization
     run_sgemm_v06(M, N, K, alpha, A, B, beta, C);
     break;
   case 7:
+  // Resolve bank conflicts
     run_sgemm_v07(M, N, K, alpha, A, B, beta, C);
     break;
   case 8:
+  // Resolve bank conflicts w/ extra col
     run_sgemm_v08(M, N, K, alpha, A, B, beta, C);
     break;
   case 9:
+  // Autotuned GEMM
     run_sgemm_v09(M, N, K, alpha, A, B, beta, C);
     break;
   case 10:
-    run_sgemm_v11(M, N, K, alpha, A, B, beta, C);
+  // Warptiling
+    run_sgemm_v10(M, N, K, alpha, A, B, beta, C);
     break;
   case 11:
-    run_sgemm_v12(M, N, K, alpha, A, B, beta, C);
+  // Double Buffering
+    run_sgemm_v11(M, N, K, alpha, A, B, beta, C);
     break;
   case 12:
-    run_sgemm_v13(M, N, K, alpha, A, B, beta, C);
+  // Double Buffering 2
+    run_sgemm_v12(M, N, K, alpha, A, B, beta, C);
     break;
   default:
     throw std::invalid_argument("Unknown kernel number");
