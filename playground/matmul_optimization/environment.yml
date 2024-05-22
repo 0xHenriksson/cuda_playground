@@ -1,0 +1,10 @@
+name: matmul_optimization
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - black
+  - cmake
+  - matplotlib
+  - seaborn
+  - tabulate

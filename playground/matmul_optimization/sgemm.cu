@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
 
         long flops = 2 * m * n * k;
         printf("Average elapsed time: (%7.6f) s, performance: (%7.1f) GFLOPS. size: (%ld).\n",
-                elapsed_time/ repeat_times, (repeat_times * flops * 1e-9) / elapsed_time, m);
+                elapsed_time / repeat_times,(repeat_times * flops * 1e-9) / elapsed_time, m);
         fflush(stdout);
         // make dC and dC_ref equal again (we modified dC while calling kernel for benchmarking
         cudaCheck(cudaMemcpy(dC, dC_ref, sizeof(float) * m * n, cudaMemcpyDeviceToDevice));
