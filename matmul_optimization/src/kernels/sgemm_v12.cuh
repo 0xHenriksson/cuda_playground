@@ -115,7 +115,8 @@ __global__ void __launch_bounds__(NUM_THREADS)
             init(&frontBarrier, block.size());
             init(&backBarrier, block.size());
         }
-        __syncthreads();
+        // __syncthreads();
+        block.sync(); // try this
 
         const uint cRow = blockIdx.y;
         const uint cCol = blockIdx.x;
