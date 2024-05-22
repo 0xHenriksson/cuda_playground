@@ -6,10 +6,12 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 
 template <const int BLOCKSIZE>
-__global__ vloid sgemm_v03(int M, int N, int K float alpha,
+__global__ void sgemm_v03(int M, int N, int K, float alpha,
                             const float *A, const float *B,
                             float beta, float *C) {
     // output block to compute in this threadblock

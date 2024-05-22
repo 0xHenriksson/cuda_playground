@@ -16,7 +16,7 @@ NUM_THREADS_VALUES=(128 256)
 cd "$(dirname "$0")"
 cd "../build"
 
-RUNNER="../src/runner.cu"
+RUNNER="../src/driver.cu"
 OUTPUT="../benchmark_results/kernel_10_autotune_results.txt"
 
 # Clear the output file

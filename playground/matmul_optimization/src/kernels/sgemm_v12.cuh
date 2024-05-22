@@ -9,7 +9,9 @@
 #include <cuda/barrier>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 
 namespace {
     template <const int BM, const int BN, const int BK, const int rowStrideA,
@@ -45,8 +47,8 @@ namespace {
         }
     } // loadFromGmem
 
-    template <const int BM, const int BN, const int BK, const int WM, const WN,
-            <const int WMITER, const int WNITER, const int WSUBM, const int WSUBN,
+    template <const int BM, const int BN, const int BK, const int WM, const int WN,
+            const int WMITER, const int WNITER, const int WSUBM, const int WSUBN,
             const int TM, const int TN>
     __device__ void
     processFromSmem(float *regM, float *regN, float *threadResults, const float *As,
@@ -54,24 +56,24 @@ namespace {
                     const uint threadRowInWarp, const uint threadColInWarp) {
         for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
             // populate registers for whole warptile
-            for (uint wSubRowIdx = 0; wSubRowIdx < WMITR, ++wSubRowIdx) {
+            for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowIdx) {
                 for (uint i = 0; i < TM; ++i) {
                     regM[wSubRowIdx * TM + i] =
                         As[(dotIdx * BM) + warpRow * WM + wSubRowIdx * WSUBM +
                             threadRowInWarp * TM + i];
                 }
             }
-        }
-        for (uint wSubColIdx = 0; wSubColIdx < WNITER; ++wSubColIdx) {
-            for (uint i = 0; i < TN; ++i) {
-                regN[wSubColIdx * TN + i] = 
-                    Bs[(dotIdx * BN) + warpCol * WN + wSubColIdx * WSUBN +
-                        threadColInWarp * TN + i];
+            
+            for (uint wSubColIdx = 0; wSubColIdx < WNITER; ++wSubColIdx) {
+                for (uint i = 0; i < TN; ++i) {
+                    regN[wSubColIdx * TN + i] = 
+                        Bs[(dotIdx * BN) + warpCol * WN + wSubColIdx * WSUBN +
+                            threadColInWarp * TN + i];
+                }
             }
         }
-
         // execute warptile matmul
-        for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowidx) {
+        for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowIdx) {
             for (uint wSubColIdx = 0; wSubColIdx < WNITER; ++wSubColIdx) {
                 // calculate per-thred results
                 for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {

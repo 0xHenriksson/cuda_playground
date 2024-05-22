@@ -7,7 +7,9 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 
 
 // 2D Blocktiling increases arithmetic intensity
@@ -25,18 +27,18 @@ __global__ void __launch_bounds__((BM * BN) / (TM * TN), 1)
 
     const uint totalResultsBlockTile = BM * BN;
     // thread is responsible for claculating TM*TN elements in the blocktile
-    const uint numThreadsBlocktile = totalResultsBlocktile / (TM * TN);
+    const uint numThreadsBlocktile = totalResultsBlockTile / (TM * TN);
 
     // ResultsPerBlock / ResultsPerThread == ThreadsPerBlock
     assert(numThreadsBlocktile == blockDim.x);
 
     // BM/TN are the number of threads to span a column
     const int threadCol = threadIdx.x % (BN / TN);
-    const int threadRow = threadIdx. / (BN / TN);
+    const int threadRow = threadIdx.x / (BN / TN);
 
     // allocate space for current blocktile in smem
     __shared__ float As[BM * BK];
-    __shared__ float Bs[BK * Bn];
+    __shared__ float Bs[BK * BN];
 
     // move blocktile to beginning of A's row and B's column
     A += cRow * BM * K;
@@ -98,7 +100,7 @@ __global__ void __launch_bounds__((BM * BN) / (TM * TN), 1)
     // write out results
     for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
         for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
-            c[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN] =
+            C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN] =
                 alpha * threadResults[resIdxM * TN + resIdxN] + 
                 beta * C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN];
         }

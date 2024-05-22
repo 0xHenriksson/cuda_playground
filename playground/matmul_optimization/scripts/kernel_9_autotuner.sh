@@ -13,12 +13,12 @@ NUM_THREADS_VALUES=(256)
 cd "$(dirname "$0")"
 cd "../build"
 
-RUNNER="../src/runner.cu"
+DRIVER="../src/driver.cu"
 KERNEL="../src/kernels/kernel_9_autotune_results.txt"
 OUTPUT="../benchmark_results/kernel_9_autotune_results.txt"
 
 # Clear the output file
-echo "" > $output
+echo "" > $OUTPUT
 # set GPU to use
 # should be 0 on the jetson
 export DEVICE="0"
@@ -64,11 +64,11 @@ for bk in ${BK_VALUES[@]}; do
             fi
 
             # Update the parameters in the source code
-            sed -i "s/const uint K9_BK = .*/const uint K9_BK = $bk;/" $RUNNER
-            sed -i "s/const uint K9_TM = .*/const uint K9_TM = $tm;/" $RUNNER
-            sed -i "s/const uint K9_TN = .*/const uint K9_TN = $tn;/" $RUNNER
-            sed -i "s/const uint K9_BM = .*/const uint K9_BM = $bm;/" $RUNNER
-            sed -i "s/const uint K9_BN = .*/const uint K9_BN = $bn;/" $RUNNER
+            sed -i "s/const uint K9_BK = .*/const uint K9_BK = $bk;/" $DRIVER
+            sed -i "s/const uint K9_TM = .*/const uint K9_TM = $tm;/" $DRIVER
+            sed -i "s/const uint K9_TN = .*/const uint K9_TN = $tn;/" $DRIVER
+            sed -i "s/const uint K9_BM = .*/const uint K9_BM = $bm;/" $DRIVER
+            sed -i "s/const uint K9_BN = .*/const uint K9_BN = $bn;/" $DRIVER
             sed -i "s/const int K9_NUM_THREADS = .*/const int K9_NUM_THREADS = $nt;/" $KERNEL
             
             # Rebuild the program
@@ -77,7 +77,7 @@ for bk in ${BK_VALUES[@]}; do
             echo "($CONFIG_NUM/$TOTAL_CONFIGS): BK=$bk TM=$tm TN=$tn BM=$bm BN=$bn NUM_THREADS=$nt" |& tee -a $OUTPUT
             # Run the benchmark and get the result
             # Kill the program after 4 seconds if it doesn't finish
-            timeout -v 4 ./sgemm 9 | tee -a $OUTPUT
+            timeout -v 10 ./sgemm 9 | tee -a $OUTPUT
           done
         done
       done

@@ -7,15 +7,17 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 
-template <const int BM, const in BN, const int BK, const int TM>
-__global__ void sgemm_v04(int M, int N, int K, float alpha
-                        const float *A, const float *B, float beta,
-                        float *C) {
+template <const int BM, const int BN, const int BK, const int TM>
+__global__ void sgemm_v04(int M, int N, int K, float alpha,
+                            const float *A, const float *B, float beta,
+                            float *C) {
 
     const uint cRow = blockIdx.y;
-    const uint CCol = blockIdx.x;
+    const uint cCol = blockIdx.x;
 
     // each warp calculates 32*TM elements, with 32 as columnar dim
     const int threadCol = threadIdx.x % BN;
@@ -59,7 +61,7 @@ __global__ void sgemm_v04(int M, int N, int K, float alpha
             float tmpB = Bs[dotIdx * BN + threadCol];
             for (uint resIdx = 0; resIdx < TM; ++resIdx) {
                 threadResults[resIdx] +=
-                    As[(threadRows * TM +resIdx) * BK + dotIdx] * tmpB;
+                    As[(threadRow * TM +resIdx) * BK + dotIdx] * tmpB;
             }
         }
         __syncthreads();

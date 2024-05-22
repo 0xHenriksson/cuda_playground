@@ -77,7 +77,7 @@ void zero_init_matrix(float *mat, int N) {
 
 void copy_matrix(const float *src, float *dest, int N) {
     int i;
-    for (i = 0; src + ii && dest + i && i < N; i++) {
+    for (i = 0; src + i && dest + i && i < N; i++) {
         *(dest + i) = *(src + i);
     if (i != N)
         printf("copy failed at %d while there are %d elements in total.\n", i, N);
@@ -88,7 +88,7 @@ void print_matrix(const float *A, int M, int N, std::ofstream &fs) {
     int i;
     fs << std:: setprecision(2) << std::fixed;
     fs << "[";
-    for (i = 0;, i < M * N; i++) {
+    for (i = 0; i < M * N; i++) {
         if ((i + 1) % N == 0)
             fs << std::setw(5) << A[i];
         else 
@@ -179,7 +179,7 @@ void run_sgemm_v03(int M, int N, int K, float alpha, float *A,
 }
 
 // GEMM w/ 1D Block Tiling
-void run_sgemm_v04(int M, int K, float alpha, float *A, float *B, float beta,
+void run_sgemm_v04(int M, int N, int K, float alpha, float *A, float *B, float beta,
                     float *C) {
 
     const uint BM = 64;
@@ -187,7 +187,7 @@ void run_sgemm_v04(int M, int K, float alpha, float *A, float *B, float beta,
     const uint BK = 8;
     const uint TM = 8;
     dim3 gridDim(CEIL_DIV(N, BN), CEIL_DIV(M, BM));
-    dim3 blockDim((BM * MB) / TM);
+    dim3 blockDim((BM * BN) / TM);
     sgemm_v04<BM, BN, BK, TM>
         <<<gridDim, blockDim>>>(M, N, K, alpha, A, B, beta, C);
 }
@@ -296,19 +296,19 @@ void run_sgemm_v08(int M, int N, int K, float alpha, float *A,
 void run_sgemm_v09(int M, int N, int K, float alpha, float *A, float *B,
                        float beta, float *C) {
   // A100
-  // const uint K9_BK = 16;
+  // const uint K9_BK = 8;
   // const uint K9_TM = 4;
   // const uint K9_TN = 4;
   // const uint K9_BM = 64;
-  // const uint K9_BN = 64;
+  // const uint K9_BN = 128;
   // A6000
-//   const uint K9_BK = 16;
-//   const uint K9_TM = 8;
-//   const uint K9_TN = 8;
-//   const uint K9_BM = 128;
-//   const uint K9_BN = 128;
-//   dim3 blockDim(K9_NUM_THREADS);
-//   JETSON ORIN NANO 8GB DEV KIT
+  const uint K9_BK = 8;
+  const uint K9_TM = 4;
+  const uint K9_TN = 4;
+  const uint K9_BM = 64;
+  const uint K9_BN = 128;
+  dim3 blockDim(K9_NUM_THREADS);
+  // JETSON ORIN NANO 8GB DEV KIT
 
   static_assert(
       (K9_NUM_THREADS * 4) % K9_BK == 0,
@@ -332,12 +332,12 @@ void run_sgemm_v09(int M, int N, int K, float alpha, float *A, float *B,
                 "K9_BN*K9_BK must be a multiple of 4*256 to vectorize loads");
 
   dim3 gridDim(CEIL_DIV(N, K9_BN), CEIL_DIV(M, K9_BM));
-  sgemm_v10<K9_BM, K9_BN, K9_BK, K9_TM, K9_TN>
+  sgemm_v09<K9_BM, K9_BN, K9_BK, K9_TM, K9_TN>
       <<<gridDim, blockDim>>>(M, N, K, alpha, A, B, beta, C);
 }
 
 // GEMM w/ warp tiling
-void run_sgemm_v11(int M, int N, int K, float alpha, float *A, float *B,
+void run_sgemm_v10(int M, int N, int K, float alpha, float *A, float *B,
                         float beta, float *C) {
   // Settings for A100
   // const uint K10_NUM_THREADS = 128;
@@ -394,13 +394,13 @@ void run_sgemm_v11(int M, int N, int K, float alpha, float *A, float *B,
                 "BN*BK must be a multiple of 4*256 to vectorize loads");
 
   dim3 gridDim(CEIL_DIV(N, K10_BN), CEIL_DIV(M, K10_BM));
-  sgemm_v11<K10_BM, K10_BN, K10_BK, K10_WM, K10_WN, K10_WNITER, K10_TM,
+  sgemm_v10<K10_BM, K10_BN, K10_BK, K10_WM, K10_WN, K10_WNITER, K10_TM,
                   K10_TN, K10_NUM_THREADS>
       <<<gridDim, blockDim>>>(M, N, K, alpha, A, B, beta, C);
 }
 
 // GEMM Double buffering
-void run_sgemm_v12(int M, int N, int K, float alpha, float *A,
+void run_sgemm_v11(int M, int N, int K, float alpha, float *A,
                              float *B, float beta, float *C) {
   // Settings for A100
   // const uint K11_NUM_THREADS = 256;
@@ -457,12 +457,12 @@ void run_sgemm_v12(int M, int N, int K, float alpha, float *A,
                 "BN*BK must be a multiple of 4*256 to vectorize loads");
 
   dim3 gridDim(CEIL_DIV(N, K11_BN), CEIL_DIV(M, K11_BM));
-  sgemm_v12<K11_BM, K11_BN, K11_BK, K11_WM, K11_WN, K11_WNITER,
+  sgemm_v11<K11_BM, K11_BN, K11_BK, K11_WM, K11_WN, K11_WNITER,
                        K11_TM, K11_TN, K11_NUM_THREADS>
       <<<gridDim, blockDim>>>(M, N, K, alpha, A, B, beta, C);
 }
 
-void run_sgemm_v13(int M, int N, int K, float alpha, float *A,
+void run_sgemm_v12(int M, int N, int K, float alpha, float *A,
                               float *B, float beta, float *C) {
   // Settings for A6000
   const uint K12_NUM_THREADS = 128;
@@ -508,7 +508,7 @@ void run_sgemm_v13(int M, int N, int K, float alpha, float *A,
                 "BN*BK must be a multiple of 4*256 to vectorize loads");
 
   dim3 gridDim(CEIL_DIV(N, K12_BN), CEIL_DIV(M, K12_BM));
-  sgemm_v13<K12_BM, K12_BN, K12_BK, K12_WM, K12_WN, K12_WNITER,
+  sgemm_v12<K12_BM, K12_BN, K12_BK, K12_WM, K12_WN, K12_WNITER,
                            K12_TM, K12_TN, K12_NUM_THREADS>
       <<<gridDim, blockDim>>>(M, N, K, alpha, A, B, beta, C);
 }

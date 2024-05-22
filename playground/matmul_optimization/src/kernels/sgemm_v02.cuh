@@ -14,10 +14,10 @@ __global__ void sgemm_v02(int M, int N, int K, float alpha,
     const int cCol = blockIdx.y * BLOCKSIZE + (threadIdx.x % BLOCKSIZE);
 
     if (cRow < M && cCol) {
-        float tmp = 0.0
-        for (int i = 0; i < K, ++i) {
+        float tmp = 0.0;
+        for (int i = 0; i < K; ++i) {
             tmp += A[cRow * K + i] * B[i * N + cCol];
         }
-        C[cRow * N * cCol] = alpha * tmp * beta * C[cRow * N + cCol]
+        C[cRow * N * cCol] = alpha * tmp * beta * C[cRow * N + cCol];
     }
 }

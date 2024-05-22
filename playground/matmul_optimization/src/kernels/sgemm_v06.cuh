@@ -9,11 +9,13 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 
 // SGEMM with vectorization
 template <const int BM, const int BN, const int BK, const int TM, const int TN>
-__global__ void sgemmv_06(int M, int N, int K, float alpha, float *A, float *B,
+__global__ void sgemm_v06(int M, int N, int K, float alpha, float *A, float *B,
                             float beta, float *C) {
 
     const uint cRow = blockIdx.x;
@@ -72,17 +74,17 @@ __global__ void sgemmv_06(int M, int N, int K, float alpha, float *A, float *B,
                 regN[i] = Bs[dotIdx * BN + threadCol * TN + i];
             }
             for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
-                for (uint resIdx = 0; resIdxN < TN; ++resIdxN) {
+                for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
                     threadResults[resIdxM * TN + resIdxN] +=
                         regM[resIdxM] * regN[resIdxN];
                 }
             }
         }
-        __syncthreads()
+        __syncthreads();
     }
 
     // write out results
-    for (uint resIdxM = 0; resIdxM < TM; resIdx +=1) {
+    for (uint resIdxM = 0; resIdxM < TM; resIdxM +=1) {
         for (uint resIdxN = 0; resIdxN < TN; resIdxN += 4) {
             // load C vector into registers
             float4 tmp = reinterpret_cast<float4 *>(

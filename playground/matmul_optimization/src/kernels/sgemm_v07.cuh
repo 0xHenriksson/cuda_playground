@@ -7,11 +7,13 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 
 template <const int BM, const int BN, const int BK, const int TM, const int TN>
 __global__ void sgemm_v07(int M, int N, int K, float alpha, float *A, float *B,
-                            float B, float *C) {
+                            float beta, float *C) {
 
     const uint cRow = blockIdx.y;
     const uint cCol = blockIdx.x;
@@ -33,7 +35,7 @@ __global__ void sgemm_v07(int M, int N, int K, float alpha, float *A, float *B,
     // load 128bit / 32bit = 4 elements
     const uint innerRowA = threadIdx.x / (BK / 4);
     const uint innerColA = threadIdx.x % (BK / 4);
-    const uint innerColA = threadIdx.x / (BN / 4);
+    const uint innerRowB = threadIdx.x / (BN / 4);
     const uint innerColB = threadIdx.x % (BN / 4);
 
     // allocate thread-local cache for for results in registerfile
@@ -53,10 +55,10 @@ __global__ void sgemm_v07(int M, int N, int K, float alpha, float *A, float *B,
 
         // "linearize" Bs while storing
         tmp = reinterpret_cast<float4 *>(&B[innerRowB * N + innerColB * 4])[0];
-        Bs[((innerColB % 2 ) * 4 innerRowB * 8 + 0) * 16 + innerColB / 2] = tmp.x;
-        Bs[((innerColB % 2 ) * 4 innerRowB * 8 + 1) * 16 + innerColB / 2] = tmp.y;
-        Bs[((innerColB % 2 ) * 4 innerRowB * 8 + 2) * 16 + innerColB / 2] = tmp.z;
-        Bs[((innerColB % 2 ) * 4 innerRowB * 8 + 3) * 16 + innerColB / 2] = tmp.w;
+        Bs[((innerColB % 2) * 4 + innerRowB * 8 + 0) * 16 + innerColB / 2] = tmp.x;
+        Bs[((innerColB % 2) * 4 + innerRowB * 8 + 1) * 16 + innerColB / 2] = tmp.y;
+        Bs[((innerColB % 2) * 4 + innerRowB * 8 + 2) * 16 + innerColB / 2] = tmp.z;
+        Bs[((innerColB % 2) * 4 + innerRowB * 8 + 3) * 16 + innerColB / 2] = tmp.w;
         __syncthreads();
 
         // advance blocktile
@@ -86,7 +88,7 @@ __global__ void sgemm_v07(int M, int N, int K, float alpha, float *A, float *B,
     for (uint resIdxM = 0; resIdxM < TM; resIdxM += 1) {
         for (uint resIdxN = 0; resIdxN < TN; resIdxN += 4) {
             // load C vector into registers
-            float tmp = reinterpret_cast<float4 *>(
+            float4 tmp = reinterpret_cast<float4 *>(
                 &C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN])[0];
         // perform GEMM update in reg
         tmp.x = alpha * threadResults[resIdxM * TN + resIdxN] + beta * tmp.x;
@@ -95,7 +97,8 @@ __global__ void sgemm_v07(int M, int N, int K, float alpha, float *A, float *B,
         tmp.w = alpha * threadResults[resIdxM * TN + resIdxN + 3] + beta * tmp.w;
         // write back
         reinterpret_cast<float4 *>(
-            &C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN])[0] = tmp;
+            &C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN])[0] =
+            tmp;
         }
     }
 }

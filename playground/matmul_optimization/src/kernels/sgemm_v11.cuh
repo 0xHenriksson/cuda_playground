@@ -7,7 +7,9 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 
 namespace db {
 
@@ -169,7 +171,7 @@ __global__ void __launch_bounds__(NUM_THREADS)
             // load current + 1 (B1)
             if (bkIdx + BK < K) {
                 db::loadFromGmem<BM, BN, BK, rowStrideA, rowStrideB>(
-                    N, K, A + BK, B + BK * N, As + (BM * BK), Bs + BK * BN), innerRowA,
+                    N, K, A + BK, B + BK * N, As + (BM * BK), Bs + (BK * BN), innerRowA,
                     innerColA, innerRowB, innerColB);
             }
             __syncthreads();
@@ -177,7 +179,7 @@ __global__ void __launch_bounds__(NUM_THREADS)
             // process current (B0)
             db::processFromSmem<BM, BN, BK, WM, WN, WMITER, WNITER, WSUBM, WSUBN, TM,
                                 TN>(regM, regN, threadResults, As, Bs, warpRow,
-                                warpCol, threadRowInwarp, threadColInWarp);
+                                warpCol, threadRowInWarp, threadColInWarp);
             __syncthreads();
 
             // process current+1 (B1)

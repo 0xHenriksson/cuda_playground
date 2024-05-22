@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstio>
+#include <cstdio>
 #include <cstdlib>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
-#define CEIL_DIV(M, N) (((M) + (N)-1) (N))
+#ifndef CEIL_DIV
+#define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 const int WARPSIZE = 32; // warpSize is not constexpr
 
 namespace wt {
@@ -44,7 +46,7 @@ namespace wt {
 
         for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
             // populate registers for whole warptile
-            for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++SubRowIdx) {
+            for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowIdx) {
                 for (uint i = 0; i < TM; ++i) {
                     regM[wSubRowIdx * TM + i] =
                         As[(dotIdx * BM) + warpRow * WM + wSubRowIdx * WSUBM +
@@ -61,7 +63,7 @@ namespace wt {
 
             // execute warptile matmul
             for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowIdx) {
-                for (uint wSubColIdx = 0; wSubColIdx < WNITERl; ++wSubColIdx) {
+                for (uint wSubColIdx = 0; wSubColIdx < WNITER; ++wSubColIdx) {
                     // calculate per-thread results
                     for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
                         for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
@@ -90,7 +92,7 @@ namespace wt {
  * @tparam TN The per-thread tile size for N dimension.
  */
 
- template <const int BM, const int BN, const int BK, const int WM, const in WN,
+ template <const int BM, const int BN, const int BK, const int WM, const int WN,
             const int WNITER, const int TM, const int TN, const int NUM_THREADS>
 __global__ void __launch_bounds__(NUM_THREADS)
 sgemm_v10(int M, int N, int K, float alpha, float *A, float *B, float beta,  float *C) {
@@ -139,12 +141,12 @@ sgemm_v10(int M, int N, int K, float alpha, float *A, float *B, float beta,  flo
     float regN[WNITER * TN] = {0.0};
 
     // outer-most loop over block tiles
-    for (uint bKIdx = 0; bkIdx < K; bkIdx += BK) {
+    for (uint bkIdx = 0; bkIdx < K; bkIdx += BK) {
         wt::loadFromGmem<BM, BN, BK, rowStrideA, rowStrideB>(
             N, K, A, B, As, Bs, innerRowA, innerColA, innerRowB, innerColB);
         __syncthreads();
-        wt::processFromSmem<BM, BK, WM, WN, WMITER, WNITER, WSUBM, WSUBN, TM,
-                            TN>(regM, regN, threadResults, As, Bs, warpRow, warpCol,
+        wt::processFromSmem<BM, BN, BK, WM, WN, WMITER, WNITER, WSUBM, WSUBN, TM,
+                        TN>(regM, regN, threadResults, As, Bs, warpRow, warpCol,
                             threadRowInWarp, threadColInWarp);
         A += BK; // move BK columbns to right
         B += BK * N;
@@ -155,7 +157,7 @@ sgemm_v10(int M, int N, int K, float alpha, float *A, float *B, float beta,  flo
     for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowIdx) {
         for (uint wSubColIdx = 0; wSubColIdx < WNITER; ++wSubColIdx) {
             // move c pointer to current warp subtitle
-            float *C_interim = C + (wSubRowIdx * WSUBM) * N + wSubColIdx * WSUBMN;
+            float *C_interim = C + (wSubRowIdx * WSUBM) * N + wSubColIdx * WSUBN;
             for (uint resIdxM = 0; resIdxM < TM; resIdxM += 1) {
                 for (uint resIdxN = 0; resIdxN < TN; resIdxN += 4) {
                     // load C vector into registers
@@ -172,7 +174,7 @@ sgemm_v10(int M, int N, int K, float alpha, float *A, float *B, float beta,  flo
                     // write back
                     reinterpret_cast<float4 *>(
                         &C_interim[(threadRowInWarp * TM + resIdxM) * N + 
-                                    threadColInWarp * TN + resIdxN])[0] = tmp
+                                    threadColInWarp * TN + resIdxN])[0] = tmp;
                 }
             }
         }

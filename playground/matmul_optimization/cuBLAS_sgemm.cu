@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
     cublasHandle_t handle; // cuBLAS context
 
     int i, j;
+    float *a, *b, *c;
 
     a = (float *)malloc(m * k * sizeof(float));
     b = (float *)malloc(k * n * sizeof(float));
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]) {
     cudaMemcpy(d_c, c, m * n * sizeof(float), cudaMemcpyHostToDevice);
 
     float alpha = 1.0f;
-    float beta 0.5f;
+    float beta = 0.5f;
 
     if (print == 1) {
         printf("alpha = %4.0f, beta = %4.0f\n", alpha, beta);
@@ -81,7 +82,7 @@ int main(int argc, char *argv[]) {
                         n, m, k, &alpha, d_b, n, d_a, k, 
                         &beta, d_c, n);
 
-    cudaMemcpy(c, d_c, m * n * sizeof(float), cudaMemcpydeviceToHost);
+    cudaMemcpy(c, d_c, m * n * sizeof(float), cudaMemcpyDeviceToHost);
 
     if (print == 1) {
         printf("\nC after SGEMM = \n");

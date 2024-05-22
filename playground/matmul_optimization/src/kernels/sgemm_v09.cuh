@@ -2,26 +2,28 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#ifndef CEIL_DIV
 #define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
+#endif
 // need to verify max threads on jetson
 const int K9_NUM_THREADS = 256;
 
-template <const int BM, const int BN, const int BK, const in TM, const in TN>
+template <const int BM, const int BN, const int BK, const int TM, const int TN>
 __global__ void __launch_bounds__(K9_NUM_THREADS)
     sgemm_v09(int M, int N, int K, float alpha, float *A, float *B, float beta, float *C) {
         
         const uint cRow = blockIdx.y;
-        const uint cCol = blockidx.x;
+        const uint cCol = blockIdx.x;
 
         // size of warptile
         constexpr int WM = TM * 16;
         constexpr int WN = TN * 16;
         // iterations of warptile
         constexpr int WMITER = CEIL_DIV(BM, WM);
-        constexpr int WNITER = CEIL_DIV(BM, WN);
+        constexpr int WNITER = CEIL_DIV(BN, WN);
 
         // placement of the thread in the warptile
-        const int threadCol = threadIdx.x % (WN, TN);
+        const int threadCol = threadIdx.x % (WN / TN);
         const int threadRow = threadIdx.x / (WN / TN);
 
         // allocate space for the current blocktile in smem
@@ -49,7 +51,7 @@ __global__ void __launch_bounds__(K9_NUM_THREADS)
         // outer-most loop over block tiles
         for (uint bkIdx = 0; bkIdx < K; bkIdx += BK) {
             // populate the SMEM caches
-            for (uint offset = 0; offset + rowStride <= BM; offset += rowStrideA) {
+            for (uint offset = 0; offset + rowStrideA <= BM; offset += rowStrideA) {
                 float4 tmp = reinterpret_cast<float4 *>(
                     &A[(innerRowA + offset) * K + innerColA * 4])[0];
                 // transpose A while storing it
@@ -111,8 +113,7 @@ __global__ void __launch_bounds__(K9_NUM_THREADS)
                         tmp.w = alpha * threadResults[i + 3] + beta * tmp.w;
                         // write back
                         reinterpret_cast<float4 *>(&C_interim[(threadRow * TM + resIdxM) * N +
-                                                                threadCol * TN + resIdxN])[0] = tmp
-                        
+                                                                threadCol * TN + resIdxN])[0] = tmp;
                     }
                 }
             }
