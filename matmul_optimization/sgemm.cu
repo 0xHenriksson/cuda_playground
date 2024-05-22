@@ -95,6 +95,7 @@ int main(int argc, char **argv) {
         if (kernel_num != 0) {
             run_kernel(0, m, n, k, alpha, dA, dB, beta, dC_ref, handle); // cuBLAS
             run_kernel(kernel_num, m, n, k, alpha, dA, dB, beta, dC, handle);
+            // getting some errors here at device synchronize
             cudaCheck(cudaDeviceSynchronize());
             cudaCheck(cudaGetLastError()); // check for async errors during kernel run
             cudaMemcpy(C, dC, sizeof(float) * m * n, cudaMemcpyDeviceToHost);

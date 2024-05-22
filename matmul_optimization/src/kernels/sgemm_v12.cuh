@@ -110,6 +110,7 @@ __global__ void __launch_bounds__(NUM_THREADS)
         __shared__ cuda::barrier<cuda::thread_scope::thread_scope_block> backBarrier;
         auto frontBarrierPtr = &frontBarrier;
         auto backBarrierPtr = &backBarrier;
+        // possibly remove this if statement to make sure all threads participate in barrier initialization
         if (block.thread_rank() == 0) {
             init(&frontBarrier, block.size());
             init(&backBarrier, block.size());
