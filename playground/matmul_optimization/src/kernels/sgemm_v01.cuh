@@ -6,8 +6,7 @@
 #include <cuda_runtime.h>
 
 __global__ void sgemm_v01(int M, int N, int K, float alpha, const float *A,
-                           int lda, const float *B, int ldb, float beta, float *C,
-                           int const float *B, float beta, float *C) {
+                            const float *B, float beta, float *C) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     int col = blockIdx.y * blockDim.y + threadIdx.y;
 

@@ -84,7 +84,7 @@ void copy_matrix(const float *src, float *dest, int N) {
     }
 }
 
-print_matrix(const float *A, int M, int N, std;:ofstream &fs) {
+void print_matrix(const float *A, int M, int N, std::ofstream &fs) {
     int i;
     fs << std:: setprecision(2) << std::fixed;
     fs << "[";
@@ -102,12 +102,12 @@ print_matrix(const float *A, int M, int N, std;:ofstream &fs) {
 }
 
 bool verify_matrix(float *matRef, float *matOut, int N) {
-    double diff 0.0;
+    double diff = 0.0;
     int i;
     for (i = 0; i < N; i++) {
-        diff = std:fabs(matRef[i] - matOut[i]);
+        diff = std::fabs(matRef[i] - matOut[i]);
         if (diff > 0.01) {
-            print("oh no my jarl we have diverged, should be %5.2f, Is %5.2f (diff %5.2f) at %d\n",
+            printf("oh no my jarl we have diverged, should be %5.2f, Is %5.2f (diff %5.2f) at %d\n",
                     matRef[i], matOut[i], diff, i);
             return false;
         }
@@ -116,8 +116,8 @@ bool verify_matrix(float *matRef, float *matOut, int N) {
 }
 
 int div_ceil(int numerator, int denominator) {
-    std::div_t res = std::div(numerator, denominator);
-    return res.rem ? (res.quot) + 1) : res.quot;
+  std::div_t res = std::div(numerator, denominator);
+  return res.rem ? (res.quot + 1) : res.quot;
 }
 
 void runCublasFP32(cublasHandle_t handle, int M, int N, int K, float alpha,
@@ -202,7 +202,7 @@ void run_sgemm_v05(int M, int N, int K, float alpha, float *A, float *B,
     if (M >= 128 and N >=128) {
         const uint BM = 128;
         const uint BN = 128;
-        dim3 gridDim(CEIL_DIV(N, BN), CEIL_DIV(M_BM));
+        dim3 gridDim(CEIL_DIV(N, BN), CEIL_DIV(M, BM));
         dim3 blockDim((BM * BN) / (TM * TN));
         sgemm_v05<BM, BN, BK, TM, TN>
             <<<gridDim, blockDim>>>(M, N, K, alpha, A, B, beta, C);

@@ -25,10 +25,10 @@ int main(int argc, char **argv) {
     dim3 grid_size(1, 1, 1);
     dim3 block_size(4 * 4);
 
-    kernel<<<grid_size, block_size(Xs_d, Ys_d, 4);
+    kernel<<<grid_size, block_size>>>(Xs_d, Ys_d, 4);
 
     cudaMemcpy(Xs, Xs_d, SIZE * SIZE * sizeof(uint), cudaMemcpyDeviceToHost);
-    cudaMemcpy(ys, Ys_d, SIZE * SIZE * sizeof(uint), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Ys, Ys_d, SIZE * SIZE * sizeof(uint), cudaMemcpyDeviceToHost);
 
     cudaDeviceSynchronize();
 
