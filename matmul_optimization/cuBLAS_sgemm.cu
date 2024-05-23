@@ -1,22 +1,25 @@
 #include <cstdio>
-#include <cstdlib>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
-// invokes and benchmarks standard cuBLAS SGEMM performance
+/*
+ * A stand-alone script to invoke & benchmark standard cuBLAS SGEMM performance
+ */
 
 int main(int argc, char *argv[]) {
     int m = 2;
     int k = 3;
     int n = 4;
     int print = 1;
-    cudaError_t cudaStat; // cudaMalloc status
-    cublasStatus_t stat;  // cuBLAS functions status
+    cudaError_t cudaStat;  // cudaMalloc status
+    cublasStatus_t stat;   // cuBLAS functions status
     cublasHandle_t handle; // cuBLAS context
 
     int i, j;
+
     float *a, *b, *c;
 
+    // malloc for a,b,c...
     a = (float *)malloc(m * k * sizeof(float));
     b = (float *)malloc(k * n * sizeof(float));
     c = (float *)malloc(m * n * sizeof(float));
@@ -32,19 +35,19 @@ int main(int argc, char *argv[]) {
     }
 
     ind = 11;
-    for (j = 0; j < m * n; j ++) {
+    for (j = 0; j < m * n; j++) {
         c[j] = (float)ind++;
     }
 
     // DEVICE
     float *d_a, *d_b, *d_c;
 
-    // cudaMalloc for device
+    // cudaMalloc for d_a, d_b, d_c...
     cudaMalloc((void **)&d_a, m * k * sizeof(float));
     cudaMalloc((void **)&d_b, k * n * sizeof(float));
     cudaMalloc((void **)&d_c, m * n * sizeof(float));
 
-    stat = cublasCreate(&handle); // initialize CUBLAS context;
+    stat = cublasCreate(&handle); // initialize CUBLAS context
 
     cudaMemcpy(d_a, a, m * k * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_b, b, k * n * sizeof(float), cudaMemcpyHostToDevice);
@@ -58,7 +61,7 @@ int main(int argc, char *argv[]) {
         printf("A = (mxk: %d x %d)\n", m, k);
         for (i = 0; i < m; i++) {
             for (j = 0; j < k; j++) {
-                printf("%4.1f ", a[ i * m + j]);
+                printf("%4.1f ", a[i * m + j]);
             }
             printf("\n");
         }
@@ -78,26 +81,25 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
-                        n, m, k, &alpha, d_b, n, d_a, k, 
-                        &beta, d_c, n);
+    stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, d_b, n,
+                        d_a, k, &beta, d_c, n);
 
     cudaMemcpy(c, d_c, m * n * sizeof(float), cudaMemcpyDeviceToHost);
 
     if (print == 1) {
         printf("\nC after SGEMM = \n");
-        for (i = 0; i < m; i++) {
-            for (j = 0; j < n; j++) {
-                printf("%4.1f ", c[i * n + j]);
+            for (i = 0; i < m; i++) {
+                for (j = 0; j < n; j++) {
+                    printf("%4.1f ", c[i * n + j]);
+                }
+                printf("\n");
             }
-            printf("\n");
-        }
     }
 
     cudaFree(d_a);
     cudaFree(d_b);
     cudaFree(d_c);
-    cublasDestroy(handle); // destroy cuBLAS context
+    cublasDestroy(handle); // destroy CUBLAS context
     free(a);
     free(b);
     free(c);

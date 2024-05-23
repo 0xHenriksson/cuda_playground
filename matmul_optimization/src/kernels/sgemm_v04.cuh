@@ -13,13 +13,18 @@
 
 template <const int BM, const int BN, const int BK, const int TM>
 __global__ void sgemm_v04(int M, int N, int K, float alpha,
-                            const float *A, const float *B, float beta,
-                            float *C) {
-
+                                   const float *A, const float *B, float beta,
+                                   float *C) {
+    // If we flip x and y here we get ~30% less performance for large matrices.
+    // The current, 30% faster configuration ensures that blocks with sequential
+    // blockIDs access columns of B sequentially, while sharing the same row of A.
+    // The slower configuration would share columns of A, but access into B would
+    // be non-sequential. So the faster configuration has better spatial locality
+    // and hence a greater L2 hit rate.
     const uint cRow = blockIdx.y;
     const uint cCol = blockIdx.x;
 
-    // each warp calculates 32*TM elements, with 32 as columnar dim
+    // each warp will calculate 32*TM elements, with 32 being the columnar dim.
     const int threadCol = threadIdx.x % BN;
     const int threadRow = threadIdx.x / BN;
 
@@ -27,24 +32,26 @@ __global__ void sgemm_v04(int M, int N, int K, float alpha,
     __shared__ float As[BM * BK];
     __shared__ float Bs[BK * BN];
 
-    // move blocktile to beginning of A's row and B's column
+    // Move blocktile to beginning of A's row and B's column
     A += cRow * BM * K;
     B += cCol * BN;
     C += cRow * BM * N + cCol * BN;
 
+    // todo: adjust this to each thread to load multiple entries and
+    // better exploit the cache sizes
     assert(BM * BK == blockDim.x);
     assert(BN * BK == blockDim.x);
-    const uint innerColA = threadIdx.x % BK;
+    const uint innerColA = threadIdx.x % BK; // warp-level GMEM coalescing
     const uint innerRowA = threadIdx.x / BK;
-    const uint innerColB = threadIdx.x % BN;
+    const uint innerColB = threadIdx.x % BN; // warp-level GMEM coalescing
     const uint innerRowB = threadIdx.x / BN;
 
-    // allocate thread-local cache for results in register file
+    // allocate thread-local cache for results in registerfile
     float threadResults[TM] = {0.0};
 
     // outer loop over block tiles
     for (uint bkIdx = 0; bkIdx < K; bkIdx += BK) {
-        // populate smem caches
+        // populate the SMEM caches
         As[innerRowA * BK + innerColA] = A[innerRowA * K + innerColA];
         Bs[innerRowB * BN + innerColB] = B[innerRowB * N + innerColB];
         __syncthreads();
@@ -55,22 +62,21 @@ __global__ void sgemm_v04(int M, int N, int K, float alpha,
 
         // calculate per-thread results
         for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
-            // outside loop is the dotproduct loop
-            // facilitates resuse of the Bs entry, which
-            // is then cached in tmp var
+            // we make the dotproduct loop the outside loop, which facilitates
+            // reuse of the Bs entry, which we can cache in a tmp var.
             float tmpB = Bs[dotIdx * BN + threadCol];
             for (uint resIdx = 0; resIdx < TM; ++resIdx) {
                 threadResults[resIdx] +=
-                    As[(threadRow * TM +resIdx) * BK + dotIdx] * tmpB;
+                    As[(threadRow * TM + resIdx) * BK + dotIdx] * tmpB;
             }
         }
         __syncthreads();
     }
 
-    // write out results
+    // write out the results
     for (uint resIdx = 0; resIdx < TM; ++resIdx) {
-        C[(threadRow * TM + resIdx) * N + threadCol] = 
-            alpha * threadResults[resIdx] + beta *
-            C[(threadRow * TM + resIdx) * N + threadCol];
+        C[(threadRow * TM + resIdx) * N + threadCol] =
+            alpha * threadResults[resIdx] +
+            beta * C[(threadRow * TM + resIdx) * N + threadCol];
     }
 }

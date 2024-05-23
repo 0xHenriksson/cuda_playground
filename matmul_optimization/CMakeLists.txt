@@ -17,6 +17,9 @@ set(CUDA_COMPUTE_CAPABILITY 87)
 # add debug symbols to device code
 add_compile_options("$<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CUDA>>:-G;-src-in-ptx>")
 
+# Suppress specific CUDA warnings
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcudafe \"--diag_suppress=20054-D\" -Xcudafe \"--diag_suppress=177\" -Xcudafe \"--diag_suppress=550\"")
+
 # configure header file paths
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR}/src)

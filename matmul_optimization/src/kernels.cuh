@@ -11,4 +11,4 @@
 #include "kernels/sgemm_v09.cuh"
 #include "kernels/sgemm_v10.cuh"
 #include "kernels/sgemm_v11.cuh"
-#include "kernels/sgemm_v12.cuh"
+// #include "kernels/sgemm_v12.cuh"

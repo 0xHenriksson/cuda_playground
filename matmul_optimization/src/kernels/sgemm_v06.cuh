@@ -15,11 +15,10 @@
 
 // SGEMM with vectorization
 template <const int BM, const int BN, const int BK, const int TM, const int TN>
-__global__ void sgemm_v06(int M, int N, int K, float alpha, float *A, float *B,
-                            float beta, float *C) {
-
-    const uint cRow = blockIdx.x;
-    const uint cCol = blockIdx.y;
+__global__ void sgemm_v06(int M, int N, int K, float alpha, float *A,
+                               float *B, float beta, float *C) {
+    const uint cRow = blockIdx.y;
+    const uint cCol = blockIdx.x;
 
     // BN/TN are the number of threads to span a column
     const int threadCol = threadIdx.x % (BN / TN);
@@ -27,15 +26,15 @@ __global__ void sgemm_v06(int M, int N, int K, float alpha, float *A, float *B,
 
     // allocate space for the current blocktile in smem
     __shared__ float As[BM * BK];
-    __shared__ float Bs[BN / TN];
+    __shared__ float Bs[BK * BN];
 
-    // Move the blocktile to beginning A's row and B's column
+    // Move blocktile to beginning of A's row and B's column
     A += cRow * BM * K;
     B += cCol * BN;
     C += cRow * BM * N + cCol * BN;
 
-    // calculate the indices that this thread will load into SMEM
-    // load 128bit / 32bit = 4 elements per thread
+    // calculating the indices that this thread will load into SMEM
+    // we'll load 128bit / 32bit = 4 elements per thread at each step
     const uint innerRowA = threadIdx.x / (BK / 4);
     const uint innerColA = threadIdx.x % (BK / 4);
     const uint innerRowB = threadIdx.x / (BN / 4);
@@ -50,7 +49,8 @@ __global__ void sgemm_v06(int M, int N, int K, float alpha, float *A, float *B,
     for (uint bkIdx = 0; bkIdx < K; bkIdx += BK) {
         // populate the SMEM caches
         // transpose A while loading it
-        float4 tmp = reinterpret_cast<float4 *>(&A[innerRowA * K + innerColA * 4])[0];
+        float4 tmp =
+            reinterpret_cast<float4 *>(&A[innerRowA * K + innerColA * 4])[0];
         As[(innerColA * 4 + 0) * BM + innerRowA] = tmp.x;
         As[(innerColA * 4 + 1) * BM + innerRowA] = tmp.y;
         As[(innerColA * 4 + 2) * BM + innerRowA] = tmp.z;
@@ -61,42 +61,43 @@ __global__ void sgemm_v06(int M, int N, int K, float alpha, float *A, float *B,
         __syncthreads();
 
         // advance blocktile
-        A += BK; // move BK columns to right
+        A += BK;     // move BK columns to right
         B += BK * N; // move BK rows down
 
         // calculate per-thread results
         for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
-            // block into registers
-            for (uint i = 0; i < TM; ++i) {
-                regM[i] = As[dotIdx * BM + threadRow * TM + i];
+        // block into registers
+        for (uint i = 0; i < TM; ++i) {
+            regM[i] = As[dotIdx * BM + threadRow * TM + i];
+        }
+        for (uint i = 0; i < TN; ++i) {
+            regN[i] = Bs[dotIdx * BN + threadCol * TN + i];
+        }
+        for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
+            for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
+                threadResults[resIdxM * TN + resIdxN] +=
+                    regM[resIdxM] * regN[resIdxN];
             }
-            for (uint i = 0; i < TN; ++i) {
-                regN[i] = Bs[dotIdx * BN + threadCol * TN + i];
-            }
-            for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
-                for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
-                    threadResults[resIdxM * TN + resIdxN] +=
-                        regM[resIdxM] * regN[resIdxN];
-                }
-            }
+        }
         }
         __syncthreads();
     }
 
-    // write out results
-    for (uint resIdxM = 0; resIdxM < TM; resIdxM +=1) {
+    // write out the results
+    for (uint resIdxM = 0; resIdxM < TM; resIdxM += 1) {
         for (uint resIdxN = 0; resIdxN < TN; resIdxN += 4) {
             // load C vector into registers
             float4 tmp = reinterpret_cast<float4 *>(
                 &C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN])[0];
-        
-            // perform GEMM update in REG
+            // perform GEMM update in reg
             tmp.x = alpha * threadResults[resIdxM * TN + resIdxN] + beta * tmp.x;
-            tmp.y = alpha * threadResults[resIdxM * TN + resIdxN + 1] + beta + tmp.y;
+            tmp.y = alpha * threadResults[resIdxM * TN + resIdxN + 1] + beta * tmp.y;
             tmp.z = alpha * threadResults[resIdxM * TN + resIdxN + 2] + beta * tmp.z;
             tmp.w = alpha * threadResults[resIdxM * TN + resIdxN + 3] + beta * tmp.w;
             // write back
-            reinterpret_cast<float4 *>(&C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN])[0] = tmp;
+            reinterpret_cast<float4 *>(
+                &C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN])[0] =
+                tmp;
         }
     }
 }
