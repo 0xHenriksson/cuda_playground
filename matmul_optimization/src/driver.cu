@@ -296,12 +296,24 @@ void run_sgemm_v08(int M, int N, int K, float alpha, float *A,
 void run_sgemm_v09(int M, int N, int K, float alpha, float *A, float *B,
                        float beta, float *C) {
   dim3 blockDim(K9_NUM_THREADS);
-  // JETSON ORIN NANO 8GB DEV KIT from benchmark
-  const uint K9_BK = 64;
-  const uint K9_TM = 16;
-  const uint K9_TN = 16;
-  const uint K9_BM = 256;
-  const uint K9_BN = 256;
+    // A6000 settings
+    // const uint K9_BK = 16;
+    // const uint K9_TM = 8;
+    // const uint K9_TN = 8;
+    // const uint K9_BM = 128;
+    // const uint K9_BN = 128;
+    // JETSON ORIN NANO 8GB DEV KIT from benchmark
+    // const uint K9_BK = 64;
+    // const uint K9_TM = 16;
+    // const uint K9_TN = 16;
+    // const uint K9_BM = 256;
+    // const uint K9_BN = 256;
+    // Try reduced settings??
+    const uint K9_BK = 32;  // Reduced from 64 to 32
+    const uint K9_TM = 8;   // Reduced from 16 to 8
+    const uint K9_TN = 8;   // Reduced from 16 to 8
+    const uint K9_BM = 128; // Kept the same
+    const uint K9_BN = 128; // Kept the same
 
   static_assert(
       (K9_NUM_THREADS * 4) % K9_BK == 0,

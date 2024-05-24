@@ -13,9 +13,9 @@ const std::string errLogFile = "matrixValidationFailure.txt";
 int main(int argc, char **argv) {
     if (argc != 2) {
         std::cerr << "Please select a kernel (range 0 - 12, 0 for NVIDIA cuBLAS)"
-            << std::endl;
-    exit(EXIT_FAILURE);
-  }
+                << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
     // get kernel number
     int kernel_num = std::stoi(argv[1]);
@@ -113,17 +113,17 @@ int main(int argc, char **argv) {
                     "cuBLAS."
                     << std::endl;
                 if (m <= 128) {
-                    std::cout << " Logging faulty output into " << errLogFile << "\n";
-                    std::ofstream fs;
-                    fs.open(errLogFile);
-                    fs << "A:\n";
-                    print_matrix(A, m, n, fs);
-                    fs << "B:\n";
-                    print_matrix(B, m, n, fs);
-                    fs << "C:\n";
-                    print_matrix(C, m, n, fs);
-                    fs << "Should:\n";
-                    print_matrix(C_ref, m, n, fs);
+                std::cout << " Logging faulty output into " << errLogFile << "\n";
+                std::ofstream fs;
+                fs.open(errLogFile);
+                fs << "A:\n";
+                print_matrix(A, m, n, fs);
+                fs << "B:\n";
+                print_matrix(B, m, n, fs);
+                fs << "C:\n";
+                print_matrix(C, m, n, fs);
+                fs << "Should:\n";
+                print_matrix(C_ref, m, n, fs);
                 }
                 exit(EXIT_FAILURE);
             }
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
 
         cudaEventRecord(beg);
         for (int j = 0; j < repeat_times; j++) {
-            // We don't reset dC between runs to save time
+            // don't reset dC between runs to save time
             run_kernel(kernel_num, m, n, k, alpha, dA, dB, beta, dC, handle);
         }
         cudaEventRecord(end);
@@ -165,4 +165,4 @@ int main(int argc, char **argv) {
     cublasDestroy(handle);
 
     return 0;
-    };
+};
