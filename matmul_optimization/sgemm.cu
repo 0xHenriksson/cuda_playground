@@ -11,11 +11,22 @@
 const std::string errLogFile = "matrixValidationFailure.txt";
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        std::cerr << "Please select a kernel (range 0 - 12, 0 for NVIDIA cuBLAS)"
-                << std::endl;
+    // if (argc != 2) {
+    //     std::cerr << "Please select a kernel (range 0 - 12, 0 for NVIDIA cuBLAS)"
+    //             << std::endl;
+    //     exit(EXIT_FAILURE);
+    // }
+
+    if (argc != 4) {
+        std::cerr << "Usage: ./sgemm <kernel_num> <matrix_size> <output_file>" << std::endl;
         exit(EXIT_FAILURE);
     }
+    std::string output_file = argv[3];
+    std::ofstream outfile(output_file, std::ios::app);
+    if (!outfile.is_open()) {
+            std::cerr << "Failed to open output file: " << output_file << std::endl;
+            exit(EXIT_FAILURE);
+        }
 
     // get kernel number
     int kernel_num = std::stoi(argv[1]);
@@ -23,6 +34,9 @@ int main(int argc, char **argv) {
         std::cerr << "Please enter a valid kernel number (0-12)" << std::endl;
         exit(EXIT_FAILURE);
     }
+
+    // get matrix size
+    int SIZE = std::stoi(argv[2]);
 
     // get environment variable for device
     int deviceIdx = 0;
@@ -53,11 +67,13 @@ int main(int argc, char **argv) {
     cudaEventCreate(&end);
 
     // cuBLAS FLOPs ceiling is reached at 8192
-    std::vector<int> SIZE = {128, 256, 512, 1024, 2048, 4096};
+    // std::vector<int> SIZE = {128, 256, 512, 1024, 2048, 4096};
+
 
     long m, n, k, max_size;
-    max_size = SIZE[SIZE.size() - 1];
-    std::cout << "Max size: " << max_size << std::endl;
+    // max_size = SIZE[SIZE.size() - 1];
+    max_size = SIZE;
+    // std::cout << "Max size: " << max_size << std::endl;
 
     float alpha = 0.5, beta = 3.0; // GEMM input parameters, C=α*AB+β*C
 
@@ -90,68 +106,75 @@ int main(int argc, char **argv) {
                         cudaMemcpyHostToDevice));
 
     int repeat_times = 50;
-    for (int size : SIZE) {
-        m = n = k = size;
+    // for (int size : SIZE) {
+        // m = n = k = size;
+    m = n = k = SIZE;
+    
+    std::cout << "dimensions(m=n=k) " << m << ", alpha: " << alpha
+            << ", beta: " << beta << std::endl;
+    // Verify the correctness of the calculation, and execute it once before the
+    // kernel function timing to avoid cold start errors
+    if (kernel_num != 0) {
+        run_kernel(0, m, n, k, alpha, dA, dB, beta, dC_ref,
+                    handle); // cuBLAS
+        run_kernel(kernel_num, m, n, k, alpha, dA, dB, beta, dC,
+                    handle); // Executes the kernel, modifies the result matrix
+        cudaCheck(cudaDeviceSynchronize());
+        cudaCheck(cudaGetLastError()); // Check for async errors during kernel run
+        cudaMemcpy(C, dC, sizeof(float) * m * n, cudaMemcpyDeviceToHost);
+        cudaMemcpy(C_ref, dC_ref, sizeof(float) * m * n, cudaMemcpyDeviceToHost);
 
-        std::cout << "dimensions(m=n=k) " << m << ", alpha: " << alpha
-                << ", beta: " << beta << std::endl;
-        // Verify the correctness of the calculation, and execute it once before the
-        // kernel function timing to avoid cold start errors
-        if (kernel_num != 0) {
-            run_kernel(0, m, n, k, alpha, dA, dB, beta, dC_ref,
-                        handle); // cuBLAS
-            run_kernel(kernel_num, m, n, k, alpha, dA, dB, beta, dC,
-                        handle); // Executes the kernel, modifies the result matrix
-            cudaCheck(cudaDeviceSynchronize());
-            cudaCheck(cudaGetLastError()); // Check for async errors during kernel run
-            cudaMemcpy(C, dC, sizeof(float) * m * n, cudaMemcpyDeviceToHost);
-            cudaMemcpy(C_ref, dC_ref, sizeof(float) * m * n, cudaMemcpyDeviceToHost);
-
-            if (!verify_matrix(C_ref, C, m * n)) {
-                std::cout
-                    << "Failed to pass the correctness verification against NVIDIA "
-                    "cuBLAS."
-                    << std::endl;
-                if (m <= 128) {
-                std::cout << " Logging faulty output into " << errLogFile << "\n";
-                std::ofstream fs;
-                fs.open(errLogFile);
-                fs << "A:\n";
-                print_matrix(A, m, n, fs);
-                fs << "B:\n";
-                print_matrix(B, m, n, fs);
-                fs << "C:\n";
-                print_matrix(C, m, n, fs);
-                fs << "Should:\n";
-                print_matrix(C_ref, m, n, fs);
-                }
-                exit(EXIT_FAILURE);
+        if (!verify_matrix(C_ref, C, m * n)) {
+            std::cout
+                << "Failed to pass the correctness verification against NVIDIA "
+                "cuBLAS."
+                << std::endl;
+            // output zeros to the output file
+            outfile << "FAIL,FAIL," << std::endl;
+            if (m <= 128) {
+            std::cout << " Logging faulty output into " << errLogFile << "\n";
+            std::ofstream fs;
+            fs.open(errLogFile);
+            fs << "A:\n";
+            print_matrix(A, m, n, fs);
+            fs << "B:\n";
+            print_matrix(B, m, n, fs);
+            fs << "C:\n";
+            print_matrix(C, m, n, fs);
+            fs << "Should:\n";
+            print_matrix(C_ref, m, n, fs);
             }
+            exit(EXIT_FAILURE);
         }
-
-        cudaEventRecord(beg);
-        for (int j = 0; j < repeat_times; j++) {
-            // don't reset dC between runs to save time
-            run_kernel(kernel_num, m, n, k, alpha, dA, dB, beta, dC, handle);
-        }
-        cudaEventRecord(end);
-        cudaEventSynchronize(beg);
-        cudaEventSynchronize(end);
-        cudaEventElapsedTime(&elapsed_time, beg, end);
-        elapsed_time /= 1000.; // Convert to seconds
-
-        long flops = 2 * m * n * k;
-        printf(
-            "Average elapsed time: (%7.6f) s, performance: (%7.1f) GFLOPS. size: "
-            "(%ld).\n",
-            elapsed_time / repeat_times,
-            (repeat_times * flops * 1e-9) / elapsed_time, m);
-        fflush(stdout);
-        // make dC and dC_ref equal again (we modified dC while calling our kernel
-        // for benchmarking)
-        cudaCheck(cudaMemcpy(dC, dC_ref, sizeof(float) * m * n,
-                            cudaMemcpyDeviceToDevice));
     }
+
+    cudaEventRecord(beg);
+    for (int j = 0; j < repeat_times; j++) {
+        // don't reset dC between runs to save time
+        run_kernel(kernel_num, m, n, k, alpha, dA, dB, beta, dC, handle);
+    }
+    cudaEventRecord(end);
+    cudaEventSynchronize(beg);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsed_time, beg, end);
+    elapsed_time /= 1000.; // Convert to seconds
+
+    long flops = 2 * m * n * k;
+
+    outfile << elapsed_time / repeat_times << "," << (repeat_times * flops * 1e-9) / elapsed_time << "," << std::endl;
+    // printf(
+    //     "Average elapsed time: (%7.6f) s, performance: (%7.1f) GFLOPS. size: "
+    //     "(%ld).\n",
+    //     elapsed_time / repeat_times,
+    //     (repeat_times * flops * 1e-9) / elapsed_time, m);
+    fflush(stdout);
+    // make dC and dC_ref equal again (we modified dC while calling our kernel
+    // for benchmarking)
+    cudaCheck(cudaMemcpy(dC, dC_ref, sizeof(float) * m * n,
+                        cudaMemcpyDeviceToDevice));
+    //}
+
+    outfile.close();
 
     // Free up CPU and GPU space
     free(A);

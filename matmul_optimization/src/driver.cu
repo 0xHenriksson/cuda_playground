@@ -296,24 +296,12 @@ void run_sgemm_v08(int M, int N, int K, float alpha, float *A,
 void run_sgemm_v09(int M, int N, int K, float alpha, float *A, float *B,
                        float beta, float *C) {
   dim3 blockDim(K9_NUM_THREADS);
-    // A6000 settings
-    // const uint K9_BK = 16;
-    // const uint K9_TM = 8;
-    // const uint K9_TN = 8;
-    // const uint K9_BM = 128;
-    // const uint K9_BN = 128;
-    // JETSON ORIN NANO 8GB DEV KIT from benchmark
-    // const uint K9_BK = 64;
-    // const uint K9_TM = 16;
-    // const uint K9_TN = 16;
-    // const uint K9_BM = 256;
-    // const uint K9_BN = 256;
-    // Try reduced settings??
-    const uint K9_BK = 32;  // Reduced from 64 to 32
-    const uint K9_TM = 8;   // Reduced from 16 to 8
-    const uint K9_TN = 8;   // Reduced from 16 to 8
-    const uint K9_BM = 128; // Kept the same
-    const uint K9_BN = 128; // Kept the same
+    // Settings for last successful build
+    const uint K9_BK = 64;
+    const uint K9_TM = 16;
+    const uint K9_TN = 16;
+    const uint K9_BM = 256;
+    const uint K9_BN = 256;
 
   static_assert(
       (K9_NUM_THREADS * 4) % K9_BK == 0,
@@ -344,26 +332,17 @@ void run_sgemm_v09(int M, int N, int K, float alpha, float *A, float *B,
 // GEMM w/ warp tiling
 void run_sgemm_v10(int M, int N, int K, float alpha, float *A, float *B,
                         float beta, float *C) {
-  // Settings for A100
-  // const uint K10_NUM_THREADS = 128;
-  // const uint K10_BN = 128;
-  // const uint K10_BM = 64;
-  // const uint K10_BK = 8;
-  // const uint K10_WN = 64;
-  // const uint K10_WM = 32;
-  // const uint K10_WNITER = 1;
-  // const uint K10_TN = 4;
-  // const uint K10_TM = 4;
-  // Settings for A6000
+
+  // Settings for last successful build
   const uint K10_NUM_THREADS = 128;
-  const uint K10_BN = 128;
-  const uint K10_BM = 64;
-  const uint K10_BK = 8;
+  const uint K10_BN = 256;
+  const uint K10_BM = 256;
+  const uint K10_BK = 64;
   const uint K10_WN = 64;
-  const uint K10_WM = 32;
-  const uint K10_WNITER = 1;
+  const uint K10_WM = 256;
+  const uint K10_WNITER = 8;
   const uint K10_TN = 4;
-  const uint K10_TM = 4;
+  const uint K10_TM = 16;
   dim3 blockDim(K10_NUM_THREADS);
   // Settings for JETSON ORIN NANO 8GB DEV KIT
 
@@ -408,25 +387,25 @@ void run_sgemm_v10(int M, int N, int K, float alpha, float *A, float *B,
 void run_sgemm_v11(int M, int N, int K, float alpha, float *A,
                              float *B, float beta, float *C) {
   // Settings for A100
-  // const uint K11_NUM_THREADS = 256;
-  // const uint K11_BN = 128;
-  // const uint K11_BM = 64;
-  // const uint K11_BK = 16;
-  // const uint K11_WN = 32;
-  // const uint K11_WM = 32;
-  // const uint K11_WNITER = 2;
+  // const uint K11_NUM_THREADS = 128;
+  // const uint K11_BN = 256;
+  // const uint K11_BM = 256;
+  // const uint K11_BK = 64;
+  // const uint K11_WN = 64;
+  // const uint K11_WM = 256;
+  // const uint K11_WNITER = 8;
   // const uint K11_TN = 4;
-  // const uint K11_TM = 4;
-  // Settings for A6000
-  const uint K11_NUM_THREADS = 256;
+  // const uint K11_TM = 16;
+  // Settings for last successful compilation
+  const uint K11_NUM_THREADS = 128;
   const uint K11_BN = 256;
-  const uint K11_BM = 128;
-  const uint K11_BK = 16;
-  const uint K11_WN = 32;
-  const uint K11_WM = 128;
-  const uint K11_WNITER = 1;
-  const uint K11_TN = 8;
-  const uint K11_TM = 8;
+  const uint K11_BM = 256;
+  const uint K11_BK = 64;
+  const uint K11_WN = 64;
+  const uint K11_WM = 256;
+  const uint K11_WNITER = 8;
+  const uint K11_TN = 4;
+  const uint K11_TM = 16;
   dim3 blockDim(K11_NUM_THREADS);
   // Settings for JETSON ORIN NANO 8GB DEV KIT
 
